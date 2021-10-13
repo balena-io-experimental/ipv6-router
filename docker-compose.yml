@@ -7,6 +7,14 @@ services:
     volumes:
       - 'data:/data'
     network_mode: host
+    environment:
+      - 'ROUTER_INTERFACE=eth0'
+      - 'ROUTED_PREFIX=2001:db8:1::/64'
+      - 'TUNNEL_PREFIX=2001:db8:2::/64'
+      - 'TUNNEL_REMOTE_IP4=203.0.113.1'
+      - 'TUNNEL_LOCAL_IP4=192.0.2.1'
+      - 'TUNNEL_MTU=1480'
+      - 'CLIENTS_WHITELIST=2001:db8:1::'
     privileged: true
     labels:
       io.balena.features.dbus: '1'

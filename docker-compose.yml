@@ -2,8 +2,8 @@ version: '2.1'
 volumes:
   data:
 services:
-  radvd:
-    build: ./radvd
+  router:
+    build: ./router
     volumes:
       - 'data:/data'
     network_mode: host

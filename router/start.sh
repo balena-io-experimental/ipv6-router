@@ -236,6 +236,16 @@ function main {
 	start_radvd # here the script blocks in a loop
 }
 
+function sigterm_handler {
+	echo "Terminating..."
+	del_6in4_tunnel
+	for pidfile in /run/*.pid; do
+		kill -TERM "$(cat "${pidfile}")"
+	done
+}
+
+trap sigterm_handler TERM
+
 if [ "$RUN_MODE" = 'idle' ]; then
 	# Idle mode for debugging
 	while true; do sleep 60; done

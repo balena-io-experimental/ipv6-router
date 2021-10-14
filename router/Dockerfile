@@ -1,8 +1,8 @@
-FROM alpine:3.14
-RUN apk update && apk add tini bash ip6tables networkmanager radvd dnsmasq openvpn
+FROM debian:bullseye-slim
+RUN apt-get update && apt-get install -y tini bash iptables network-manager radvd dnsmasq openvpn
 WORKDIR /usr/src/app
 COPY openvpn-client.conf /etc/openvpn/client.conf
 COPY start.sh /usr/src/app/start.sh
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/usr/src/app/start.sh"]

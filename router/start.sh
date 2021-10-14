@@ -11,11 +11,17 @@ elif [ "${TUNNEL_TYPE}" = '6project-openvpn' ]; then
 	TUNNEL_INTERFACE='tun0' # note: this name cannot be changed just here
 fi
 
+EXAMPLE_IPV6_1="2001:db8:1::"
+EXAMPLE_IPV6_PREFIX_1="2001:db8:1::/64"
+EXAMPLE_IPV6_PREFIX_2="2001:db8:2::/64"
+EXAMPLE_IPV4_PREFIX_1="203.0.113.1"
+EXAMPLE_IPV4_PREFIX_2="192.0.2.1"
+
 # Device's physical interface on the local network (eth0=ethernet, wlan0=WiFi typically)
 ROUTER_INTERFACE="${ROUTER_INTERFACE:-eth0}"
 # Tunnel's "routed prefix", to be advertised to the local network
-ROUTED_PREFIX="${ROUTED_PREFIX:-2001:db8:1::/64}"
-TUNNEL_PREFIX="${TUNNEL_PREFIX:-2001:db8:2::/64}"
+ROUTED_PREFIX="${ROUTED_PREFIX:-"${EXAMPLE_IPV6_PREFIX_1}"}"
+TUNNEL_PREFIX="${TUNNEL_PREFIX:-"${EXAMPLE_IPV6_PREFIX_2}"}"
 ROUTED_PREFIX_LEN="${ROUTED_PREFIX/*::\//}" # e.g. '64' in 'a:b::/64'
 TUNNEL_PREFIX_LEN="${TUNNEL_PREFIX/*::\//}" # e.g. '64' in 'a:b::/64'
 
@@ -23,13 +29,13 @@ TUNNEL_PREFIX_LEN="${TUNNEL_PREFIX/*::\//}" # e.g. '64' in 'a:b::/64'
 TUNNEL_REMOTE_GW="${TUNNEL_PREFIX/::\/*/::1}"
 TUNNEL_LOCAL_IP6="${TUNNEL_PREFIX/::\//::2\/}"
 # Tunnel's public IPv4, remote endpoint (Hurricane Electric)
-TUNNEL_REMOTE_IP4="${TUNNEL_REMOTE_IP4:-203.0.113.1}"
+TUNNEL_REMOTE_IP4="${TUNNEL_REMOTE_IP4:-"${EXAMPLE_IPV4_PREFIX_1}"}"
 # Device's private IPv4 address on the local network
-TUNNEL_LOCAL_IP4="${TUNNEL_LOCAL_IP4:-192.0.2.1}"
+TUNNEL_LOCAL_IP4="${TUNNEL_LOCAL_IP4:-"${EXAMPLE_IPV4_PREFIX_2}"}"
 # Client whitelists: lists of clients to be served with router advertisements
 # and/or DHCPv6 address leases
 # Semicolon separated list of client 'fe80::' IPv6 addresses to advertise to
-CLIENTS_WHITELIST="${CLIENTS_WHITELIST:-2001:db8:1::;}"
+CLIENTS_WHITELIST="${CLIENTS_WHITELIST:-"${EXAMPLE_IPV6_1}";}"
 # Semicolon separated list of client MAC addresses to serve DHCPv6 to
 CLIENTS_WHITELIST_MAC="${CLIENTS_WHITELIST_MAC:-}"
 
@@ -37,19 +43,33 @@ CLIENTS_WHITELIST_MAC="${CLIENTS_WHITELIST_MAC:-}"
 # The MTU also needs to be configured in the Hurricane Electric web interface.
 TUNNEL_MTU=${TUNNEL_MTU:-1480}
 
-ORIGINAL_TUNNEL_PREFIX="${TUNNEL_PREFIX}"
-ORIGINAL_ROUTED_PREFIX="${ROUTED_PREFIX}"
+function prefix_fixup {
+	ORIGINAL_TUNNEL_PREFIX="${TUNNEL_PREFIX}"
+	ORIGINAL_ROUTED_PREFIX="${ROUTED_PREFIX}"
 
-# If TUNNEL_PREFIX is the same as ROUTED_PREFIX (e.g. single 6project.org /80),
-# then split in two by adding 1 to the prefix length, e.g.:
-# - Tunnel Prefix changes from a:b:c::/80 to a:b:c::/81
-# - Routed Prefix changes from a:b:c::/80 to a:b:c:8000::/81
-if [ "${ROUTED_PREFIX}" = "${TUNNEL_PREFIX}" ]; then
-	ROUTED_PREFIX_LEN=$((ROUTED_PREFIX_LEN + 1))
-	TUNNEL_PREFIX_LEN="${ROUTED_PREFIX_LEN}"
-	ROUTED_PREFIX="${ROUTED_PREFIX/::\/*/:8000::}/${ROUTED_PREFIX_LEN}"
-	TUNNEL_PREFIX="${TUNNEL_PREFIX/::\/*/::}/${TUNNEL_PREFIX_LEN}"
-fi
+	# If TUNNEL_PREFIX is the same as ROUTED_PREFIX (e.g. single 6project.org /80),
+	# then split in two by adding 1 to the prefix length, e.g.:
+	# - Tunnel Prefix changes from a:b:c::/80 to a:b:c::/81
+	# - Routed Prefix changes from a:b:c::/80 to a:b:c:8000::/81
+	if [ "${ROUTED_PREFIX}" = "${TUNNEL_PREFIX}" ]; then
+		ROUTED_PREFIX_LEN=$((ROUTED_PREFIX_LEN + 1))
+		TUNNEL_PREFIX_LEN="${ROUTED_PREFIX_LEN}"
+		ROUTED_PREFIX="${ROUTED_PREFIX/::\/*/:8000::}/${ROUTED_PREFIX_LEN}"
+		TUNNEL_PREFIX="${TUNNEL_PREFIX/::\/*/::}/${TUNNEL_PREFIX_LEN}"
+	fi
+}
+
+function check_configuration {
+	if [ "${ROUTED_PREFIX}" = "${EXAMPLE_IPV6_PREFIX_1}" ] ||
+		[ "${TUNNEL_PREFIX}" = "${EXAMPLE_IPV6_PREFIX_2}" ] ||
+		[ "${TUNNEL_REMOTE_IP4}" = "${EXAMPLE_IPV4_PREFIX_1}" ] ||
+		[ "${TUNNEL_LOCAL_IP4}" = "${EXAMPLE_IPV4_PREFIX_2}" ] ||
+		[ "${CLIENTS_WHITELIST}" = "${EXAMPLE_IPV6_1};" ]; then
+			echo "Router requires configuration - please replace example values" \
+			 " using service variables"
+			while true; do sleep 60; done
+	fi
+}
 
 function setup_6in4_tunnel {
 	DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket \
@@ -199,6 +219,8 @@ function start_dnsmasq {
 }
 
 function main {
+	check_configuration
+	prefix_fixup
 	setup_firewall
 	configure_dnsmasq
 	configure_radvd

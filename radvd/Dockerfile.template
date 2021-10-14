@@ -1,0 +1,7 @@
+FROM balenalib/%%BALENA_MACHINE_NAME%%-debian:bullseye
+RUN install_packages tini bash iptables network-manager radvd
+WORKDIR /usr/src/app
+COPY start.sh /usr/src/app/start.sh
+
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/usr/src/app/start.sh"]

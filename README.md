@@ -70,7 +70,22 @@ Which one to choose? Some considerations:
 
 ### Setting up a Hurricane Electric Tunnel
 
-** Work in Progress **
+* Sign up at [tunnelbroker.net](https://tunnelbroker.net)
+* On the left side "User functions" menu, select "Create Regular Tunnel"
+* Provide your public IPv4 address as IPv4 endpoint
+* Select a geographically close tunnel server
+* Click on "Create tunnel"
+* Once the tunnel is created, its configuration is displayed
+* Go to balenaCloud's dashboard, open your fleet and add fleet configuration
+  variables to match the tunnel configuration:
+
+  * **ROUTER_INTERFACE**: This is the device's network interface to use. It's eth0 by default.
+  * **ROUTED_PREFIX**: This corresponds to the "Routed IPv6 Prefix" from the tunnel configuration.
+  * **TUNNEL_PREFIX**: This corresponfs to the "IPv6 tunnel endpoints" prefix. If for example the server is `2001:470:1f12:352::1/64`
+    and the client is `2001:470:1f12:352::2/64`, the prefix becomes `2001:470:1f12:352::/64`
+  * **TUNNEL_LOCAL_IP4**: This is the private IPv4 address of the specified router interface. This is not the public IPv4 address used to configure the tunnel.
+  * **TUNNEL_REMOTE_IP4**: This is the `Server IPv4 Address` from the `IPv6 Tunnel Endpoints` in the  tunnel configuration.
+  * **CLIENTS_WHITELIST**: This is a semi-colon separated list of client link-local IPv6 addresses that the router will advertise to. This is used to unicast advertisements to individual devices instead of broadcasting to the whole network. You may not wish to broadcast to the whole network because the IPv6 tunnel may offer lower bandwidth and higher latency, and cause temporary downtime if the tunnel connection is broken.
 
 ### Setting up a 6project.org tunnel
 
@@ -90,7 +105,7 @@ file with that file.
 Both ROUTED_PREFIX and TUNNEL_PREFIX must be set, but they may have the same
 value if you have only got one IPv6 prefix (e.g. a /80 prefix from 6project.org).
 When this is the case, the IPv6 Router will automatically split the prefix in two
-by adding one to prefix length, so that:  
+by adding one to prefix length, so that:
   * The Tunnel Prefix is changed from e.g. a:b::/80 to a:b::/81
   * The Routed Prefix is changed from e.g. a:b::/80 to a:b:8000::/81
 

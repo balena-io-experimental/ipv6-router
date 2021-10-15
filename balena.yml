@@ -1,0 +1,27 @@
+name: IPv6-Router
+type: sw.application
+description: >-
+  Add IPv6 to your IPv4 network by plugging in a balena device
+joinable: false
+assets:
+  repository:
+    type: blob.asset
+    data:
+      url: 'https://github.com/balena-io-playground/ipv6-router'
+  logo:
+    type: blob.asset
+    data:
+      url: >-
+        https://raw.githubusercontent.com/ipv6-router/master/ipv6-logo.png
+data:
+  applicationEnvironmentVariables:
+    - CLIENTS_WHITELIST: 2001:db8:1::
+    - ROUTED_PREFIX: 2001:db8:1::/64
+    - ROUTER_INTERFACE: eth0
+    - TUNNEL_LOCAL_IP4: 192.0.2.1
+    - TUNNEL_PREFIX: 2001:db8:2::/64
+    - TUNNEL_REMOTE_IP4: 203.0.113.1
+  supportedDeviceTypes:
+    - raspberrypi4-64
+    - intel-nuc
+version: 0.0.1

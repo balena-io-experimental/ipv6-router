@@ -21,6 +21,7 @@ data:
     - TUNNEL_LOCAL_IP4: 192.0.2.1
     - TUNNEL_PREFIX: 2001:db8:2::/64
     - TUNNEL_REMOTE_IP4: 203.0.113.1
+    - TUNNEL_TYPE: he-6in4
   supportedDeviceTypes:
     - raspberrypi4-64
     - intel-nuc

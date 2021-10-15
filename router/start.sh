@@ -106,31 +106,54 @@ function fix_tunnel_address {
 	fi
 }
 
+function create_icmpv6_chain {
+	ip6tables -N IPV6-ROUTER-ICMPV6 &>/dev/null
+	ip6tables -F IPV6-ROUTER-ICMPV6
+
+	# Trust ourselves
+	ip6tables -A IPV6-ROUTER-ICMPV6 -s fe80::/64 -p ipv6-icmp -j ACCEPT
+	ip6tables -A IPV6-ROUTER-ICMPV6 -s "${ROUTED_PREFIX}" -p ipv6-icmp -j ACCEPT
+	ip6tables -A IPV6-ROUTER-ICMPV6 -s "${TUNNEL_PREFIX}" -p ipv6-icmp -j ACCEPT
+
+	# RFC4890 https://www.rfc-editor.org/rfc/rfc4890#section-4.3.1
+	ip6tables -A IPV6-ROUTER-ICMPV6 -p icmpv6 --icmpv6-type destination-unreachable -j ACCEPT
+	ip6tables -A IPV6-ROUTER-ICMPV6 -p icmpv6 --icmpv6-type packet-too-big -j ACCEPT
+	ip6tables -A IPV6-ROUTER-ICMPV6 -p icmpv6 --icmpv6-type time-exceeded -j ACCEPT
+	ip6tables -A IPV6-ROUTER-ICMPV6 -p icmpv6 --icmpv6-type parameter-problem -j ACCEPT
+	ip6tables -A IPV6-ROUTER-ICMPV6 -p icmpv6 --icmpv6-type echo-request -j ACCEPT
+	ip6tables -A IPV6-ROUTER-ICMPV6 -p icmpv6 --icmpv6-type echo-reply -j ACCEPT
+
+	ip6tables -A IPV6-ROUTER-ICMPV6 -j RETURN
+}
+
 function setup_firewall {
-	ip6tables -N IPV6-ROUTER-FWD
+	create_icmpv6_chain
+	ip6tables -N IPV6-ROUTER-FWD &>/dev/null
 	ip6tables -F IPV6-ROUTER-FWD
 	ip6tables -A IPV6-ROUTER-FWD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
 	ip6tables -A IPV6-ROUTER-FWD -s "${ROUTED_PREFIX}" -j ACCEPT
+	ip6tables -A IPV6-ROUTER-FWD -j IPV6-ROUTER-ICMPV6
 	ip6tables -A IPV6-ROUTER-FWD -j REJECT --reject-with icmp6-adm-prohibited
 
-	ip6tables -N IPV6-ROUTER-IN
+	iptables  -N IPV6-ROUTER-IN &>/dev/null
+	iptables  -F IPV6-ROUTER-IN
+	ip6tables -N IPV6-ROUTER-IN &>/dev/null
 	ip6tables -F IPV6-ROUTER-IN
 
-	ORIGINAL_IFS="${IFS}"
-	IFS=';'
-	for mac in ${CLIENTS_WHITELIST_MAC}; do
-		iptables  -A IPV6-ROUTER-IN -p udp --dport 67 -m mac --mac-source "${mac}" -j ACCEPT
+	# DHCP whitelist
+	IFS=';' read -a macs <<< "${CLIENTS_WHITELIST_MAC}"
+	for mac in "${macs[@]}"; do
 		ip6tables -A IPV6-ROUTER-IN -p udp --dport 67 -m mac --mac-source "${mac}" -j ACCEPT
 	done
-	IFS="${ORIGINAL_IFS}"
 	ip6tables -A IPV6-ROUTER-IN -p udp --dport 67 -j REJECT
+	iptables  -A IPV6-ROUTER-IN -p udp --dport 67 -j REJECT
 
 	ip6tables -A IPV6-ROUTER-IN -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-	ip6tables -A IPV6-ROUTER-IN -s fe80::/64 -p ipv6-icmp -j ACCEPT
-	ip6tables -A IPV6-ROUTER-IN -s "${ROUTED_PREFIX}" -p ipv6-icmp -j ACCEPT
-	ip6tables -A IPV6-ROUTER-IN -s "${TUNNEL_PREFIX}" -p ipv6-icmp -j ACCEPT
+	ip6tables -A IPV6-ROUTER-IN -j IPV6-ROUTER-ICMPV6
 	ip6tables -A IPV6-ROUTER-IN -j REJECT --reject-with icmp6-adm-prohibited
 
+	iptables  -D INPUT   -j IPV6-ROUTER-IN
+	iptables  -A INPUT   -j IPV6-ROUTER-IN
 	ip6tables -D INPUT   -j IPV6-ROUTER-IN
 	ip6tables -A INPUT   -j IPV6-ROUTER-IN
 	ip6tables -D FORWARD -j IPV6-ROUTER-FWD

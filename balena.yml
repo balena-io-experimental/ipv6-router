@@ -15,13 +15,17 @@ assets:
         https://raw.githubusercontent.com/ipv6-router/master/ipv6-logo.png
 data:
   applicationEnvironmentVariables:
-    - CLIENTS_WHITELIST: 2001:db8:1::
+    - CLIENTS_WHITELIST: '2001:db8:1::abba;2001:db8:1::cafe'
+    - CLIENTS_WHITELIST_MAC: 'aa:bb:cc:dd:ee:ff;11:22:33:44:55:66'
     - ROUTED_PREFIX: 2001:db8:1::/64
     - ROUTER_INTERFACE: eth0
     - TUNNEL_LOCAL_IP4: 192.0.2.1
     - TUNNEL_PREFIX: 2001:db8:2::/64
     - TUNNEL_REMOTE_IP4: 203.0.113.1
     - TUNNEL_TYPE: he-6in4
+    - HE_USERNAME: bob
+    - HE_UPDATE_KEY: bobs-key
+    - HE_TUNNEL_ID: 123456
   supportedDeviceTypes:
     - raspberrypi4-64
     - intel-nuc

@@ -43,6 +43,19 @@ CLIENTS_WHITELIST_MAC="${CLIENTS_WHITELIST_MAC:-}"
 # The MTU also needs to be configured in the Hurricane Electric web interface.
 TUNNEL_MTU=${TUNNEL_MTU:-1480}
 
+# URL-safe character escaping (https://stackoverflow.com/a/34407620)
+function escape {
+	printf %s "${1}" | jq -Rrs '@uri'
+}
+
+# Print the clients' current public IPv4 address (IPv4 router address)
+function get_public_ipv4 {
+	# This is similar to the more popular `curl ifconfig.me` command line,
+	# however www.opendns.com is arguably a more reputable and performant
+	# source, being owned by Cisco and highly geographically distributed.
+	dig -4 +short myip.opendns.com @resolver1.opendns.com
+}
+
 function prefix_fixup {
 	ORIGINAL_TUNNEL_PREFIX="${TUNNEL_PREFIX}"
 	ORIGINAL_ROUTED_PREFIX="${ROUTED_PREFIX}"
@@ -71,7 +84,30 @@ function check_configuration {
 	fi
 }
 
+function watch_external_ip4 {
+	if [[ -z "${HE_USERNAME}" || -z "${HE_UPDATE_KEY}" || -z "${HE_TUNNEL_ID}" ]]; then
+		echo "[WARN] Environment variables HE_USERNAME, HE_UPDATE_KEY or HE_TUNNEL_ID not defined."
+		echo "[WARN] The client's public IPv4 address will not be monitored and notified to tunnelbroker.net."
+		return
+	fi
+	CURRENT_IP="$(get_public_ipv4)"
+	echo "Detected client's current public IPv4 address: '${CURRENT_IP}'"
+	while true; do
+		echo "Notifying client's public IPv4 address to tunnelbroker.net"
+		curl -4sSL "https://ipv4.tunnelbroker.net/nic/update?username=$(escape ${HE_USERNAME})&password=$(escape ${HE_UPDATE_KEY})&hostname=$(escape ${HE_TUNNEL_ID})"
+		sleep 60
+		NEW_IP="$(get_public_ipv4)"
+		while [ "${?}" -gt 0 ] || [ -z "${NEW_IP}" ] || [ "${NEW_IP}" = "${CURRENT_IP}" ]; do
+			sleep 60
+			NEW_IP="$(get_public_ipv4)"
+		done
+		echo "Client's public IPv4 address has changed: OLD='${CURRENT_IP}' NEW='${NEW_IP}'"
+	done
+}
+
 function setup_6in4_tunnel {
+	watch_external_ip4 &
+	sleep 3
 	DBUS_SYSTEM_BUS_ADDRESS=unix:path=/host/run/dbus/system_bus_socket \
 		nmcli connection add \
 			con-name "${TUNNEL_INTERFACE}" ifname "${TUNNEL_INTERFACE}" \

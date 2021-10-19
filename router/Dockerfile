@@ -1,5 +1,5 @@
 FROM debian:bullseye-slim
-RUN apt-get update && apt-get install -y tini bash iptables network-manager radvd dnsmasq openvpn
+RUN apt-get update && apt-get install -y bash bind9-dnsutils curl dnsmasq iptables jq network-manager openvpn radvd tini
 RUN update-alternatives --set iptables /usr/sbin/iptables-legacy; \
     update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
 WORKDIR /usr/src/app

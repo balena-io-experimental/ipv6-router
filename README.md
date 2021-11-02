@@ -13,6 +13,13 @@ We have tested the solution with tunnels provided by Hurricane Electric's
 https://tunnelbroker.net/ in the case of 6in4, and https://6project.org/ in the case
 of OpenVPN.
 
+Note that this is ***not*** a traditional router with physically separate WAN and LAN
+sides. It is also ***not*** a WiFi Access Point or hotspot. Physically, the IPv6 router
+device uses a **single network interface** (either WiFi or Ethernet) to connect to the
+existing IPv4 WiFi/Ethernet router, just like all other devices or workstations on the
+local network. This design choice makes it simpler to add IPv6 to an existing IPv4 local
+network, avoiding the need for reconfiguration of existing devices.
+
 ## Audience
 
 Software developers, testers or enthusiasts who would like to use/test IPv6 but who have
@@ -115,11 +122,12 @@ file with that file.
 ** Work in Progress **
 
 Both ROUTED_PREFIX and TUNNEL_PREFIX must be set, but they may have the same
-value if you have only got one IPv6 prefix (e.g. a /80 prefix from 6project.org).
+value if you have only got one IPv6 prefix (e.g. a `/80` prefix from 6project.org).
 When this is the case, the IPv6 Router will automatically split the prefix in two
 by adding one to prefix length, so that:
-  * The Tunnel Prefix is changed from e.g. a:b::/80 to a:b::/81
-  * The Routed Prefix is changed from e.g. a:b::/80 to a:b:8000::/81
 
-The Routed Prefix is assigned to the ${ROUTER_INTERFACE} (e.g. 'eth0'), and
+* The Tunnel Prefix is changed from e.g. `a:b::/80` to `a:b::/81`
+* The Routed Prefix is changed from e.g. `a:b::/80` to `a:b:8000::/81`
+
+The Routed Prefix is assigned to the `${ROUTER_INTERFACE}` (e.g. 'eth0'), and
 the Tunnel Prefix is assigned to the tunnel interface, e.g. 'he-sit' or 'tun0'.

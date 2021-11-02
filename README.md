@@ -20,6 +20,8 @@ existing IPv4 WiFi/Ethernet router, just like all other devices or workstations 
 local network. This design choice makes it simpler to add IPv6 to an existing IPv4 local
 network, avoiding the need for reconfiguration of existing devices.
 
+![Overview Diagram](assets/diagram1.jpg)
+
 ## Audience
 
 Software developers, testers or enthusiasts who would like to use/test IPv6 but who have
@@ -100,7 +102,7 @@ Which one to choose? Some considerations:
 
   * **ROUTER_INTERFACE**: This is the device's network interface to use. It's eth0 by default.
   * **ROUTED_PREFIX**: This corresponds to the "Routed IPv6 Prefix" from the tunnel configuration.
-  * **TUNNEL_PREFIX**: This corresponfs to the "IPv6 tunnel endpoints" prefix. If for example the server is `2001:470:1f12:352::1/64`
+  * **TUNNEL_PREFIX**: This corresponds to the "IPv6 tunnel endpoints" prefix. If for example the server is `2001:470:1f12:352::1/64`
     and the client is `2001:470:1f12:352::2/64`, the prefix becomes `2001:470:1f12:352::/64`
   * **TUNNEL_LOCAL_IP4**: This is the private IPv4 address of the specified router interface. This is not the public IPv4 address used to configure the tunnel.
   * **TUNNEL_REMOTE_IP4**: This is the `Server IPv4 Address` from the `IPv6 Tunnel Endpoints` in the  tunnel configuration.

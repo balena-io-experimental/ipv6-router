@@ -38,8 +38,8 @@ TUNNEL_LOCAL_IP4="${TUNNEL_LOCAL_IP4:-"${EXAMPLE_IPV4_PREFIX_2}"}"
 CLIENTS_WHITELIST="${CLIENTS_WHITELIST:-"${EXAMPLE_IPV6_1}";}"
 # Semicolon separated list of client MAC addresses to serve DHCPv6 to
 CLIENTS_WHITELIST_MAC="${CLIENTS_WHITELIST_MAC:-}"
-# Address used for ping to determine MTU size. Default is a Hurricane Electric IP.
-IPV4_TEST_MTU_ADDR="${IPV4_TEST_MTU_ADDR:-216.66.87.14}"
+# Address used for ping to determine MTU size.
+IPV4_TEST_MTU_ADDR="${IPV4_TEST_MTU_ADDR:-"${TUNNEL_REMOTE_IP4}"}"
 
 # MTU depends on the IPv4 ISP, e.g. TUNNEL_MTU='1472' for Vodafone UK home broadband.
 # The MTU also needs to be configured in the Hurricane Electric web interface.
@@ -314,14 +314,14 @@ function start_dnsmasq {
 
 function main {
 	check_configuration
-	if [ -z ${TUNNEL_MTU+x} ]; then
-		set_tunnel_mtu
-	fi
 	prefix_fixup
 	setup_firewall
 	configure_dnsmasq
 	configure_radvd
 	if [ "$TUNNEL_TYPE" = 'he-6in4' ]; then
+		if [ -z "${TUNNEL_MTU}" ]; then
+			set_tunnel_mtu
+		fi
 		del_6in4_tunnel
 		setup_6in4_tunnel
 	fi

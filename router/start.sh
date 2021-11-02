@@ -78,6 +78,33 @@ function set_tunnel_mtu {
 	fi
 }
 
+function check_6in4_mtu {
+	if [ -z "${TUNNEL_MTU}" ]; then
+		set_tunnel_mtu
+		if [ "${TUNNEL_MTU}" != '1480' ]; then
+			while true; do
+				cat - <<EOF >/dev/stderr
+---------------------------------------------------------------------------------
+Error: MTU value '${TUNNEL_MTU}' detected that does not match Hurricane Electric's default
+value of '1480'. Please ensure that BOTH the following actions are taken:
+
+* Visit your tunnel configuration page at https://tunnelbroker.net/ and set
+set the tunnel MTU field to '${TUNNEL_MTU}' (it could be found under the
+"Tunnel Details" -> "Advanced" tab at the time of this writing).
+* Use Balena's CLI or web dashboard to set the TUNNEL_MTU env var to '1472'
+(without the quotes).
+
+If either action above is missed or misconfigured, you may end up with a partially
+broken internet connection where, for example, some websites will load and others
+won't, without a clear indication of the reason why.
+---------------------------------------------------------------------------------
+EOF
+				sleep 10
+			done
+		fi
+	fi
+}
+
 # URL-safe character escaping (https://stackoverflow.com/a/34407620)
 function escape {
 	printf %s "${1}" | jq -Rrs '@uri'
@@ -319,9 +346,7 @@ function main {
 	configure_dnsmasq
 	configure_radvd
 	if [ "$TUNNEL_TYPE" = 'he-6in4' ]; then
-		if [ -z "${TUNNEL_MTU}" ]; then
-			set_tunnel_mtu
-		fi
+		check_6in4_mtu
 		del_6in4_tunnel
 		setup_6in4_tunnel
 	fi

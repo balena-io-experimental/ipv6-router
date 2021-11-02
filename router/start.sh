@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # TUNNEL_TYPE - Allowed values are:
 # * 'he-6in4' - Hurricane Electric's https://tunnelbroker.net/ 6in4 tunnel, two /64 prefixes
@@ -38,10 +38,97 @@ TUNNEL_LOCAL_IP4="${TUNNEL_LOCAL_IP4:-"${EXAMPLE_IPV4_PREFIX_2}"}"
 CLIENTS_WHITELIST="${CLIENTS_WHITELIST:-"${EXAMPLE_IPV6_1}";}"
 # Semicolon separated list of client MAC addresses to serve DHCPv6 to
 CLIENTS_WHITELIST_MAC="${CLIENTS_WHITELIST_MAC:-}"
+# Address used for ping to determine MTU size.
+IPV4_TEST_MTU_ADDR="${IPV4_TEST_MTU_ADDR:-"${TUNNEL_REMOTE_IP4}"}"
 
-# MTU depends on the IPv4 ISP, e.g. '1472' for Vodafone UK. ToDo: Implement auto detection.
+# MTU depends on the IPv4 ISP, e.g. TUNNEL_MTU='1472' for Vodafone UK home broadband.
 # The MTU also needs to be configured in the Hurricane Electric web interface.
-TUNNEL_MTU=${TUNNEL_MTU:-1480}
+# Based on the firmware script at
+# https://www.routertech.org/viewtopic.php?t=1720
+function set_tunnel_mtu {
+	local ATT='50'
+	local CURR_MTU='500'
+	local DIFF='1000'
+	TUNNEL_MTU='0'
+	echo 'Determining MTU...'
+	while (( ATT > 0 )); do
+		DIFF=$(( DIFF / 2 + DIFF % 2 ))
+		set -x
+		ping -I "${ROUTER_INTERFACE}" -c 1 -M 'do' -s "${CURR_MTU}" "${IPV4_TEST_MTU_ADDR}" &>/dev/null
+		{ local status="$?"; set +x; } 2>/dev/null
+		if (( status == 0 )); then
+			if (( TUNNEL_MTU == CURR_MTU )); then
+				break;
+			else
+				TUNNEL_MTU="${CURR_MTU}"
+				CURR_MTU=$(( CURR_MTU + DIFF ))
+			fi
+		else
+			CURR_MTU=$(( CURR_MTU - DIFF ))
+		fi
+		ATT=$(( ATT - 1 ))
+	done
+	if (( ATT == 0 || CURR_MTU <= 0 )); then
+		echo "Could not determine MTU within '${ATT}' pings to '${IPV4_TEST_MTU_ADDR}'"
+		TUNNEL_MTU=''
+	else
+		# Add 8 bytes for the ICMP header. The 20 bytes of the IPv4 header
+		# is not added because it is also present in 6in4 encapsulation.
+		TUNNEL_MTU=$(( TUNNEL_MTU + 8 ))
+		echo "Determined MTU: '${TUNNEL_MTU}'"
+	fi
+}
+
+function check_6in4_mtu {
+	if [ -n "${TUNNEL_MTU}" ]; then
+		return
+	fi
+	while [ -z "${TUNNEL_MTU}" ]; do
+		set_tunnel_mtu
+		if [ -z "${TUNNEL_MTU}" ]; then
+			cat - <<EOF >/dev/stderr
+-------------------------------------------------------------------------------
+Error: Unable to automatically determine 6in4 tunnel MTU value. Will retry.
+You can manually set the tunnel MTU value by performing both of the following
+actions:
+
+* Visit your tunnel configuration page at https://tunnelbroker.net/ and set
+  set the tunnel MTU field (it could be found under the "Tunnel Details" ->
+  "Advanced" tab at the time of this writing).
+* Use Balena's CLI or web dashboard to set the TUNNEL_MTU env var.
+
+MTU misconfiguration results in a partially broken internet connection where,
+for example, some websites will load normally, others will load partially and
+yet others will not load at all, without a clear indication of the reason why.
+-------------------------------------------------------------------------------
+EOF
+			sleep 30
+		fi
+	done
+
+	if [ "${TUNNEL_MTU}" != '1480' ]; then
+		while true; do
+			cat - <<EOF >/dev/stderr
+-------------------------------------------------------------------------------
+Error: MTU value '${TUNNEL_MTU}' detected that does not match Hurricane Electric's
+default value of '1480'. Please ensure that both of the following actions are
+taken:
+
+* Visit your tunnel configuration page at https://tunnelbroker.net/ and set
+  set the tunnel MTU field to '${TUNNEL_MTU}' (it could be found under the
+  "Tunnel Details" -> "Advanced" tab at the time of this writing).
+* Use Balena's CLI or web dashboard to set the TUNNEL_MTU env var to '${TUNNEL_MTU}'
+  (without the quotes).
+
+MTU misconfiguration results in a partially broken internet connection where,
+for example, some websites will load normally, others will load partially and
+yet others will not load at all, without a clear indication of the reason why.
+-------------------------------------------------------------------------------
+EOF
+			sleep 30
+		done
+	fi
+}
 
 # URL-safe character escaping (https://stackoverflow.com/a/34407620)
 function escape {
@@ -90,16 +177,21 @@ function watch_external_ip4 {
 		echo "[WARN] The client's public IPv4 address will not be monitored and notified to tunnelbroker.net."
 		return
 	fi
+	local CURRENT_IP
+	local NEW_IP
+	local status
 	CURRENT_IP="$(get_public_ipv4)"
 	echo "Detected client's current public IPv4 address: '${CURRENT_IP}'"
 	while true; do
 		echo "Notifying client's public IPv4 address to tunnelbroker.net"
-		curl -4sSL "https://ipv4.tunnelbroker.net/nic/update?username=$(escape ${HE_USERNAME})&password=$(escape ${HE_UPDATE_KEY})&hostname=$(escape ${HE_TUNNEL_ID})"
+		curl -4sSL "https://ipv4.tunnelbroker.net/nic/update?username=$(escape "${HE_USERNAME}")&password=$(escape "${HE_UPDATE_KEY}")&hostname=$(escape "${HE_TUNNEL_ID}")"
 		sleep 60
 		NEW_IP="$(get_public_ipv4)"
-		while [ "${?}" -gt 0 ] || [ -z "${NEW_IP}" ] || [ "${NEW_IP}" = "${CURRENT_IP}" ]; do
+		status="$?"
+		while [ "${status}" -gt 0 ] || [ -z "${NEW_IP}" ] || [ "${NEW_IP}" = "${CURRENT_IP}" ]; do
 			sleep 60
 			NEW_IP="$(get_public_ipv4)"
+			status="$?"
 		done
 		echo "Client's public IPv4 address has changed: OLD='${CURRENT_IP}' NEW='${NEW_IP}'"
 	done
@@ -177,7 +269,9 @@ function setup_firewall {
 	ip6tables -F IPV6-ROUTER-IN
 
 	# DHCP whitelist
-	IFS=';' read -a macs <<< "${CLIENTS_WHITELIST_MAC}"
+	local macs
+	local mac
+	IFS=';' read -ra macs <<< "${CLIENTS_WHITELIST_MAC}"
 	for mac in "${macs[@]}"; do
 		ip6tables -A IPV6-ROUTER-IN -p udp --dport 67 -m mac --mac-source "${mac}" -j ACCEPT
 	done
@@ -208,11 +302,11 @@ function configure_radvd {
 	if [ "${CLIENTS_WHITELIST: -1}" != ';' ]; then
 		CLIENTS_WHITELIST="${CLIENTS_WHITELIST};"
 	fi
-	CLIENTS_WHITELIST=$(echo "${CLIENTS_WHITELIST}" | sed 's/;/;\n\t\t/g')
+	CLIENTS_WHITELIST="${CLIENTS_WHITELIST//';'/$';\n\t\t'}"
 	if [ "${ROUTED_PREFIX_LEN}" = '64' ]; then
-		MANAGED_FLAG='off' # Do not require DHCPv6, use SLAAC
+		local MANAGED_FLAG='off' # Do not require DHCPv6, use SLAAC
 	else
-		MANAGED_FLAG='on'  # Require DHCPv6
+		local MANAGED_FLAG='on'  # Require DHCPv6
 	fi
 	cat << EOF > "/etc/radvd.conf"
 interface ${ROUTER_INTERFACE} {
@@ -284,6 +378,7 @@ function main {
 	configure_dnsmasq
 	configure_radvd
 	if [ "$TUNNEL_TYPE" = 'he-6in4' ]; then
+		check_6in4_mtu
 		del_6in4_tunnel
 		setup_6in4_tunnel
 	fi

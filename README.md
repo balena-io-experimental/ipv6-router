@@ -25,6 +25,18 @@ sense of it but also because this project has had limited testing and you are li
 come across defects that will require some investigation on your part.** Your contribution
 with fixes will be most welcome!
 
+## **Attention! Production balenaOS images only**
+
+Please use a production (not development) image of balenaOS with this project. Unlike most
+other balena projects, this project will expose the device to the public internet (over
+IPv6), bypassing the existing local network router's NAT and firewall protections. The
+IPv6 router device does set up a firewall for itself and the local network, but should
+something go wrong with the logic (the project has had limited testing), a development
+image might mean unauthenticated, passwordless ssh root login exposed to port scanners
+in the public internet. Even during this project's development, we have used production
+images of balenaOS (which indeed also means that development images have not been
+sufficiently tested).
+
 ## Getting Started
 
 You will need to register / request a tunnel from either tunnelbroker.net or

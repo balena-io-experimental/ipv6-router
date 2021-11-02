@@ -46,35 +46,35 @@ IPV4_TEST_MTU_ADDR="${IPV4_TEST_MTU_ADDR:-216.66.87.14}"
 # Based on the firmware script at
 # https://www.routertech.org/viewtopic.php?t=1720
 function set_tunnel_mtu {
-    ATT="50"
-    CURR_MTU="500"
-    DIFF="1000"
-    TUNNEL_MTU="0"
-    echo "Determining MTU..."
-    while [ "$ATT" -gt "0" ]
-    do
-            DIFF=`expr "$DIFF" / 2 + "$DIFF" % 2`
-            ping -I "${ROUTER_INTERFACE}" -c 1 -M do -s "${CURR_MTU}" ${IPV4_TEST_MTU_ADDR} > /dev/null 2>&1
-            if [ "$?" -eq 0 ]; then
-                    if [ "$TUNNEL_MTU" -eq "$CURR_MTU" ]; then
-                            break;
-                    else
-                            TUNNEL_MTU="$CURR_MTU"
-                            CURR_MTU=`expr "$CURR_MTU" + "$DIFF"`
-                    fi
-            else
-                    CURR_MTU=`expr "$CURR_MTU" - "$DIFF"`
-            fi
-            ATT=`expr "$ATT" - 1`
-    done
-    if [ "$ATT" -eq "0" ] || [ "$CURR_MTU" -le "0" ]; then
-        echo "Could not determine MTU, using default value 1480"
-        TUNNEL_MTU="1480"
-    else
-        # 20 bytes IP header, 8 icmp header
-        TUNNEL_MTU=`expr "$TUNNEL_MTU" + 28`
-        echo "Determined MTU: ${TUNNEL_MTU}"
-    fi
+	ATT="50"
+	CURR_MTU="500"
+	DIFF="1000"
+	TUNNEL_MTU="0"
+	echo "Determining MTU..."
+	while [ "$ATT" -gt "0" ]
+	do
+			DIFF=`expr "$DIFF" / 2 + "$DIFF" % 2`
+			ping -I "${ROUTER_INTERFACE}" -c 1 -M do -s "${CURR_MTU}" ${IPV4_TEST_MTU_ADDR} > /dev/null 2>&1
+			if [ "$?" -eq 0 ]; then
+					if [ "$TUNNEL_MTU" -eq "$CURR_MTU" ]; then
+							break;
+					else
+							TUNNEL_MTU="$CURR_MTU"
+							CURR_MTU=`expr "$CURR_MTU" + "$DIFF"`
+					fi
+			else
+					CURR_MTU=`expr "$CURR_MTU" - "$DIFF"`
+			fi
+			ATT=`expr "$ATT" - 1`
+	done
+	if [ "$ATT" -eq "0" ] || [ "$CURR_MTU" -le "0" ]; then
+		echo "Could not determine MTU, using default value 1480"
+		TUNNEL_MTU="1480"
+	else
+		# 20 bytes IP header, 8 icmp header
+		TUNNEL_MTU=`expr "$TUNNEL_MTU" + 28`
+		echo "Determined MTU: ${TUNNEL_MTU}"
+	fi
 }
 
 # URL-safe character escaping (https://stackoverflow.com/a/34407620)

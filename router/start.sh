@@ -41,7 +41,7 @@ CLIENTS_WHITELIST_MAC="${CLIENTS_WHITELIST_MAC:-}"
 # Address used for ping to determine MTU size. Default is a Hurricane Electric IP.
 IPV4_TEST_MTU_ADDR="${IPV4_TEST_MTU_ADDR:-216.66.87.14}"
 
-# MTU depends on the IPv4 ISP, e.g. '1472' for Vodafone UK.
+# MTU depends on the IPv4 ISP, e.g. TUNNEL_MTU='1472' for Vodafone UK home broadband.
 # The MTU also needs to be configured in the Hurricane Electric web interface.
 # Based on the firmware script at
 # https://www.routertech.org/viewtopic.php?t=1720
@@ -71,8 +71,9 @@ function set_tunnel_mtu {
 		echo "Could not determine MTU, using default value 1480"
 		TUNNEL_MTU="1480"
 	else
-		# 20 bytes IP header, 8 icmp header
-		TUNNEL_MTU=`expr "$TUNNEL_MTU" + 28`
+		# Add 8 bytes for the ICMP header. The 20 bytes of the IPv4 header
+		# is not added because it is also present in 6in4 encapsulation.
+		TUNNEL_MTU=`expr "$TUNNEL_MTU" + 8`
 		echo "Determined MTU: ${TUNNEL_MTU}"
 	fi
 }
